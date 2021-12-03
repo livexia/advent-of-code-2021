@@ -53,42 +53,24 @@ fn part2(numbers: Vec<&[u8]>) -> Result<()> {
 
     let mut most_common = numbers.clone();
     for i in 0..length {
-        let temp: Vec<&[u8]> = most_common
-            .drain_filter(|b| b[i] == '1' as u8)
-            .collect();
+        let temp: Vec<&[u8]> = most_common.drain_filter(|b| b[i] == '1' as u8).collect();
         if temp.len() >= most_common.len() {
             most_common = temp
         }
     }
-    let oxygen_generator_rating = if most_common.len() == 1 {
-        vec_to_u32(most_common[0])
-    } else {
-        return err!(
-            "cannot find the oxygen generator rating, after search there remain {} rattings",
-            most_common.len()
-        );
-    };
+    let oxygen_generator_rating = vec_to_u32(&most_common)?;
 
     let mut least_common = numbers.clone();
     for i in 0..length {
         if least_common.len() == 1 {
             break;
         }
-        let temp: Vec<&[u8]> = least_common
-            .drain_filter(|b| b[i] == '0' as u8)
-            .collect();
+        let temp: Vec<&[u8]> = least_common.drain_filter(|b| b[i] == '0' as u8).collect();
         if temp.len() <= least_common.len() {
             least_common = temp
         }
     }
-    let co2_scrubber_rating = if least_common.len() == 1 {
-        vec_to_u32(least_common[0])
-    } else {
-        return err!(
-            "cannot find the CO2 scrubber rating, after search there remain {} rattings",
-            least_common.len()
-        );
-    };
+    let co2_scrubber_rating = vec_to_u32(&least_common)?;
 
     writeln!(
         io::stdout(),
@@ -98,6 +80,15 @@ fn part2(numbers: Vec<&[u8]>) -> Result<()> {
     Ok(())
 }
 
-fn vec_to_u32(input: &[u8]) -> u32 {
-    input.iter().fold(0, |acc, &b| acc << 1 | ((b - '0' as u8) as u32))
+fn vec_to_u32(input: &[&[u8]]) -> Result<u32> {
+    if input.len() == 1 {
+        Ok(input[0]
+            .iter()
+            .fold(0, |acc, &b| acc << 1 | ((b - '0' as u8) as u32)))
+    } else {
+        err!(
+            "cannot find the CO2 scrubber rating, after search there remain {} rattings",
+            input.len()
+        )
+    }
 }
