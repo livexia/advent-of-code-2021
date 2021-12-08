@@ -61,9 +61,7 @@ struct Entry {
     six: Vec<char>,
     seven: Vec<char>,
     eight: Vec<char>,
-    nine: Vec<char>,
-    length_five_digits: HashSet<Vec<char>>,
-    length_six_digits: HashSet<Vec<char>>,
+    nine: Vec<char>
 }
 
 impl Entry {
@@ -73,21 +71,8 @@ impl Entry {
             output,
             ..Default::default()
         };
-        entry.length_five_digits = entry.find_digits_with_length(5);
-        entry.length_six_digits = entry.find_digits_with_length(6);
 
-        entry.one = entry.find_easy_digits(ONE).unwrap().clone();
-        entry.four = entry.find_easy_digits(FOUR).unwrap().clone();
-        entry.seven = entry.find_easy_digits(SEVEN).unwrap().clone();
-        entry.eight = entry.find_easy_digits(EIGHT).unwrap().clone();
-
-        entry.find_three();
-        entry.find_six();
-        entry.find_five();
-        entry.find_two();
-        entry.find_zero();
-        entry.nine = entry.length_six_digits.iter().next().unwrap().clone();
-        // println!("{:?}", entry);
+        entry.figure_the_pattern();
 
         entry
     }
@@ -109,69 +94,57 @@ impl Entry {
             .collect()
     }
 
-    fn find_three(&mut self) {
-        if self.one.len() == 0 {
-            return;
-        }
+    fn figure_the_pattern(&mut self) {
+        let mut length_five_digits = self.find_digits_with_length(5);
+        let mut length_six_digits = self.find_digits_with_length(6);
+
+        self.one = self.find_easy_digits(ONE).unwrap().clone();
+        self.four = self.find_easy_digits(FOUR).unwrap().clone();
+        self.seven = self.find_easy_digits(SEVEN).unwrap().clone();
+        self.eight = self.find_easy_digits(EIGHT).unwrap().clone();
+
         let one: HashSet<&char> = self.one.iter().collect();
-        for digit in &self.length_five_digits {
+        // find three
+        for digit in &length_five_digits {
             let digit_set = digit.iter().collect();
             if one.is_subset(&digit_set) {
                 self.three = digit.clone();
             }
         }
-        self.length_five_digits.remove(&self.three);
-    }
+        length_five_digits.remove(&self.three);
 
-    fn find_six(&mut self) {
-        if self.one.len() == 0 {
-            return;
-        }
-        let one: HashSet<&char> = self.one.iter().collect();
-        for digit in &self.length_six_digits {
+        // find six
+        for digit in &length_six_digits {
             let digit_set = digit.iter().collect();
             if !one.is_subset(&digit_set) {
                 self.six = digit.clone();
             }
         }
-        self.length_six_digits.remove(&self.six);
-    }
+        length_six_digits.remove(&self.six);
 
-    fn find_zero(&mut self) {
-        if self.four.len() == 0 || self.six.len() == 0 {
-            return;
-        }
+
         let six: HashSet<&char> = self.six.iter().collect();
-        for digit in &self.length_six_digits {
+        // find zero and nine
+        for digit in &length_six_digits {
             let digit_set: HashSet<&char> = digit.iter().collect();
             for x in six.difference(&digit_set) {
                 if self.four.contains(x) {
                     self.zero = digit.clone();
+                } else {
+                    self.nine = digit.clone();
                 }
             }
         }
-        self.length_six_digits.remove(&self.zero);
-    }
 
-    fn find_five(&mut self) {
-        if self.six.len() == 0 {
-            return;
-        }
-        let six: HashSet<&char> = self.six.iter().collect();
-        for digit in &self.length_five_digits {
+        // find five and two
+        for digit in &length_five_digits {
             let digit_set: HashSet<&char> = digit.iter().collect();
             if digit_set.difference(&six).count() == 0 {
                 self.five = digit.clone();
+            } else {
+                self.two = digit.clone();
             }
         }
-        self.length_five_digits.remove(&self.five);
-    }
-
-    fn find_two(&mut self) {
-        if self.three.len() == 0 || self.five.len() == 0 {
-            return;
-        }
-        self.two = self.length_five_digits.iter().next().unwrap().clone();
     }
 
     fn get_output(&self) -> i32 {
