@@ -43,32 +43,25 @@ fn part1(entries: &[Entry]) -> Result<()> {
 }
 
 fn part2(entries: &[Entry]) -> Result<()> {
-    let result: i32 = entries.iter().map(|e| e.get_output()).sum();
+    let result: u32 = entries.iter().map(|e| e.get_output()).sum();
     writeln!(io::stdout(), "sum of the output values is {}", result)?;
     Ok(())
 }
 
 #[derive(Debug, Default)]
 struct Entry {
-    input: Vec<Vec<char>>,
-    output: Vec<Vec<char>>,
-    zero: Vec<char>,
-    one: Vec<char>,
-    two: Vec<char>,
-    three: Vec<char>,
-    four: Vec<char>,
-    five: Vec<char>,
-    six: Vec<char>,
-    seven: Vec<char>,
-    eight: Vec<char>,
-    nine: Vec<char>
+    input: Vec<String>,
+    output: Vec<String>,
+    pattern: Vec<String>,
+    query_map: HashMap<String, u32>,
 }
 
 impl Entry {
-    fn new(input: Vec<Vec<char>>, output: Vec<Vec<char>>) -> Self {
+    fn new(input: Vec<String>, output: Vec<String>) -> Self {
         let mut entry = Entry {
             input,
             output,
+            pattern: vec!["0".to_string(); 10],
             ..Default::default()
         };
 
@@ -77,7 +70,7 @@ impl Entry {
         entry
     }
 
-    fn find_easy_digits(&self, len: usize) -> Option<Vec<char>> {
+    fn find_easy_digits(&self, len: usize) -> Option<String> {
         self.output
             .clone()
             .into_iter()
@@ -85,7 +78,7 @@ impl Entry {
             .find(|s| s.len() == len)
     }
 
-    fn find_digits_with_length(&self, len: usize) -> HashSet<Vec<char>> {
+    fn find_digits_with_length(&self, len: usize) -> HashSet<String> {
         self.output
             .clone()
             .into_iter()
@@ -98,79 +91,62 @@ impl Entry {
         let mut length_five_digits = self.find_digits_with_length(5);
         let mut length_six_digits = self.find_digits_with_length(6);
 
-        self.one = self.find_easy_digits(ONE).unwrap().clone();
-        self.four = self.find_easy_digits(FOUR).unwrap().clone();
-        self.seven = self.find_easy_digits(SEVEN).unwrap().clone();
-        self.eight = self.find_easy_digits(EIGHT).unwrap().clone();
+        self.pattern[1] = self.find_easy_digits(ONE).unwrap().clone();
+        self.pattern[4] = self.find_easy_digits(FOUR).unwrap().clone();
+        self.pattern[7] = self.find_easy_digits(SEVEN).unwrap().clone();
+        self.pattern[8] = self.find_easy_digits(EIGHT).unwrap().clone();
 
-        let one: HashSet<&char> = self.one.iter().collect();
+        let one: HashSet<char> = self.pattern[1].chars().collect();
         // find three
         for digit in &length_five_digits {
-            let digit_set = digit.iter().collect();
+            let digit_set = digit.chars().collect();
             if one.is_subset(&digit_set) {
-                self.three = digit.clone();
+                self.pattern[3] = digit.clone();
             }
         }
-        length_five_digits.remove(&self.three);
+        length_five_digits.remove(&self.pattern[3]);
 
         // find six
         for digit in &length_six_digits {
-            let digit_set = digit.iter().collect();
+            let digit_set = digit.chars().collect();
             if !one.is_subset(&digit_set) {
-                self.six = digit.clone();
+                self.pattern[6] = digit.clone();
             }
         }
-        length_six_digits.remove(&self.six);
+        length_six_digits.remove(&self.pattern[6]);
 
-
-        let six: HashSet<&char> = self.six.iter().collect();
+        let six: HashSet<char> = self.pattern[6].chars().collect();
         // find zero and nine
         for digit in &length_six_digits {
-            let digit_set: HashSet<&char> = digit.iter().collect();
-            for x in six.difference(&digit_set) {
-                if self.four.contains(x) {
-                    self.zero = digit.clone();
+            let digit_set: HashSet<char> = digit.chars().collect();
+            for &x in six.difference(&digit_set) {
+                if self.pattern[4].contains(x) {
+                    self.pattern[0] = digit.clone();
                 } else {
-                    self.nine = digit.clone();
+                    self.pattern[9] = digit.clone();
                 }
             }
         }
 
         // find five and two
         for digit in &length_five_digits {
-            let digit_set: HashSet<&char> = digit.iter().collect();
+            let digit_set: HashSet<char> = digit.chars().collect();
             if digit_set.difference(&six).count() == 0 {
-                self.five = digit.clone();
+                self.pattern[5] = digit.clone();
             } else {
-                self.two = digit.clone();
+                self.pattern[2] = digit.clone();
             }
         }
+
+        for (i, s) in self.pattern.clone().into_iter().enumerate() {
+            self.query_map.entry(s).or_insert(i as u32);
+        };
     }
 
-    fn get_output(&self) -> i32 {
+    fn get_output(&self) -> u32 {
         let mut s = String::new();
         for o in &self.output {
-            if o == &self.zero {
-                s.push('0')
-            } else if o == &self.one {
-                s.push('1')
-            } else if o == &self.two {
-                s.push('2')
-            } else if o == &self.three {
-                s.push('3')
-            } else if o == &self.four {
-                s.push('4')
-            } else if o == &self.five {
-                s.push('5')
-            } else if o == &self.six {
-                s.push('6')
-            } else if o == &self.seven {
-                s.push('7')
-            } else if o == &self.eight {
-                s.push('8')
-            } else if o == &self.nine {
-                s.push('9')
-            }
+            s.push(char::from_digit(*self.query_map.get(o).unwrap(), 10).unwrap());
         }
         s.parse().unwrap()
     }
@@ -186,15 +162,17 @@ impl FromStr for Entry {
         }
         let mut input: Vec<Vec<char>> = split[0]
             .split_whitespace()
-            .map(|s| s.trim().chars().collect())
+            .map(|s| s.trim().chars().collect::<Vec<char>>())
             .collect();
         input.iter_mut().for_each(|s| s.sort());
+        let input = input.iter().map(|c| String::from_iter(c)).collect();
 
         let mut output: Vec<Vec<char>> = split[1]
             .split_whitespace()
             .map(|s| s.trim().chars().collect())
             .collect();
         output.iter_mut().for_each(|s| s.sort());
+        let output = output.iter().map(|c| String::from_iter(c)).collect();
 
         Ok(Self::new(input, output))
     }
