@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::collections::BinaryHeap;
 use std::error::Error;
 use std::io::{self, Read, Write};
 
@@ -7,6 +8,7 @@ macro_rules! err {
 }
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
+type Coord = (usize, usize);
 
 fn main() -> Result<()> {
     let mut input = String::new();
@@ -16,86 +18,152 @@ fn main() -> Result<()> {
         .lines()
         .map(|s| s.bytes().map(|b| b - '0' as u8).collect())
         .collect();
-    let height = heatmap.len();
-    let width = heatmap[0].len();
-    let highest_row = vec![10; width];
-    let mut lowest_points: Vec<(usize, usize)> = vec![];
+    let mut heatmap = HeatMap::new(heatmap);
+    part1(&heatmap)?;
+    part2(&mut heatmap)?;
+    Ok(())
+}
 
-    let mut result = 0;
-    for i in 0..height {
-        for j in 0..width {
-            let cur = &heatmap[i][j];
-            if cur < &heatmap.get(i + 1).unwrap_or(&highest_row)[j]
-                && cur
-                    < &heatmap
-                        .get(i.checked_sub(1).unwrap_or(height))
-                        .unwrap_or(&highest_row)[j]
-                && cur
-                    < heatmap[i]
-                        .get(j.checked_sub(1).unwrap_or(width))
-                        .unwrap_or(&10)
-                && cur < heatmap[i].get(j + 1).unwrap_or(&10)
-            {
-                result += *cur as u32 + 1;
-                lowest_points.push((i, j));
-            }
-        }
-    }
-
+fn part1(heatmap: &HeatMap) -> Result<()> {
     writeln!(
         io::stdout(),
         "sum of the risk levels of all low points on your heightmap is {}",
-        result
+        heatmap
+            .low_points
+            .iter()
+            .fold(0, |acc, (i, j)| acc + 1 + heatmap.heatmap[*i][*j] as u32)
     )?;
-    let mut basins: Vec<HashSet<(usize, usize)>> = vec![];
-    for point in lowest_points {
-        for basin in &basins {
-            if basin.contains(&point) {
-                continue;
-            }
+    Ok(())
+}
+
+fn part2(heatmap: &mut HeatMap) -> Result<()> {
+    let mut result = 1;
+    for _ in 0..3 {
+        if let Some(basin) = heatmap.basins.pop() {
+            result *= basin;
         }
-        let mut basin = HashSet::new();
-        let mut stack = vec![point];
-        while let Some(cur_point) = stack.pop() {
-            basin.insert(cur_point);
-            let x = cur_point.0;
-            let y = cur_point.1;
-            let cur_heat = heatmap[x][y];
-            if x >= 1 {
-                let next_point = heatmap[x - 1][y];
-                if next_point != 9 && next_point > cur_heat {
-                    stack.push((x - 1, y))
-                }
-            }
-            if y >= 1 {
-                let next_point = heatmap[x][y - 1];
-                if next_point != 9 && next_point > cur_heat {
-                    stack.push((x, y - 1))
-                }
-            }
-            if x + 1 < height {
-                let next_point = heatmap[x + 1][y];
-                if next_point != 9 && next_point > cur_heat {
-                    stack.push((x + 1, y))
-                }
-            }
-            if y + 1 < width {
-                let next_point = heatmap[x][y + 1];
-                if next_point != 9 && next_point > cur_heat {
-                    stack.push((x, y + 1))
-                }
-            }
-        }
-        basins.push(basin);
-    }
-    basins.sort_by(|a, b| b.len().cmp(&a.len()));
+    };
     writeln!(
         io::stdout(),
         "multiply together the sizes of the three largest basins is {}",
-        &basins[..3].iter().fold(1, |acc, b| acc * b.len())
+        result
     )?;
 
-    // part1()?;
-    // part2()?;
     Ok(())
+}
+
+#[derive(Debug, Default)]
+struct HeatMap {
+    heatmap: Vec<Vec<u8>>,
+    height: usize,
+    width: usize,
+    visited: Vec<Vec<bool>>,
+    low_points: Vec<Coord>,
+    basins: BinaryHeap<usize>,
+}
+
+impl HeatMap {
+    fn new(heatmap: Vec<Vec<u8>>) -> Self {
+        let height = heatmap.len();
+        let width = heatmap[0].len();
+        let visited = vec![vec![false; width]; height];
+        let mut heatmap = HeatMap {
+            heatmap,
+            height,
+            width,
+            visited,
+            basins: BinaryHeap::with_capacity(3),
+            ..Default::default()
+        };
+        heatmap.get_low_points();
+        heatmap.find_all_basins();
+        heatmap
+    }
+
+    fn up(&self, coord: Coord) -> Option<Coord> {
+        if coord.0 > 0 {
+            Some((coord.0 - 1, coord.1))
+        } else {
+            None
+        }
+    }
+
+    fn down(&self, coord: Coord) -> Option<Coord> {
+        if coord.0 + 1 < self.height {
+            Some((coord.0 + 1, coord.1))
+        } else {
+            None
+        }
+    }
+
+    fn left(&self, coord: Coord) -> Option<Coord> {
+        if coord.1 > 0 {
+            Some((coord.0, coord.1 - 1))
+        } else {
+            None
+        }
+    }
+
+    fn right(&self, coord: Coord) -> Option<Coord> {
+        if coord.1 + 1 < self.width {
+            Some((coord.0, coord.1 + 1))
+        } else {
+            None
+        }
+    }
+
+    fn adjacent_locations(&self, coord: Coord) -> Vec<Coord> {
+        let mut result = vec![];
+        if let Some(next) = self.up(coord) {
+            result.push(next);
+        }
+        if let Some(next) = self.down(coord) {
+            result.push(next);
+        }
+        if let Some(next) = self.left(coord) {
+            result.push(next);
+        }
+        if let Some(next) = self.right(coord) {
+            result.push(next);
+        }
+        result
+    }
+
+    fn get_low_points(&mut self) {
+        for i in 0..self.height {
+            for j in 0..self.width {
+                let cur_heat = self.heatmap[i][j];
+                if self
+                    .adjacent_locations((i, j))
+                    .iter()
+                    .all(|(next_i, next_j)| self.heatmap[*next_i][*next_j] > cur_heat)
+                {
+                    self.low_points.push((i, j));
+                }
+            }
+        }
+    }
+
+    fn find_all_basins(&mut self) {
+        for &point in &self.low_points {
+            if self.visited[point.0][point.1] {
+                continue;
+            }
+            let mut basin = HashSet::new();
+            let mut stack = vec![point];
+            while let Some((i, j)) = stack.pop() {
+                self.visited[i][j] = true;
+                basin.insert((i, j));
+                let cur_heat = self.heatmap[i][j];
+                stack.extend(self.adjacent_locations((i, j)).into_iter().filter(
+                    |(next_i, next_j)| {
+                        !self.visited[*next_i][*next_j]
+                            && self.heatmap[*next_i][*next_j] != 9
+                            && self.heatmap[*next_i][*next_j] > cur_heat
+                    },
+                ))
+            }
+            self.basins.push(basin.len());
+        }
+    }
 }
