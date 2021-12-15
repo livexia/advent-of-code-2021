@@ -1,5 +1,3 @@
-#![feature(map_first_last)]
-use std::collections::HashSet;
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::collections::BinaryHeap;
