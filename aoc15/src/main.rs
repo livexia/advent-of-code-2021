@@ -2,7 +2,8 @@
 use std::collections::HashSet;
 use std::error::Error;
 use std::io::{self, Read, Write};
-use std::collections::BTreeSet;
+use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
 macro_rules! err {
     ($($tt:tt)*) => { Err(Box::<dyn Error>::from(format!($($tt)*))) }
@@ -48,23 +49,18 @@ fn lowest_risk(map: &Vec<Vec<u8>>, width: usize) -> u32 {
     let mut risk_from_start = vec![vec![u32::MAX; width]; width];
     risk_from_start[0][0] = 0;
 
-    let mut cur = (0, 0);
-
-    let mut s = BTreeSet::new();
-
-    while !visited.iter().all(|v| v.iter().all(|&b| b)) {
-        let risk = risk_from_start[cur.0][cur.1];
-        for next in adjacent_coords(cur.0, cur.1, width) {
-            if visited[next.0][next.1] {
+    let mut t = BinaryHeap::new();
+    t.push(Reverse((0, (0, 0))));
+    while let Some(Reverse((risk ,(i, j)))) = t.pop() {
+        for (x, y) in adjacent_coords(i, j, width) {
+            if visited[x][y] {
                 continue;
             }
-            let risk = get_risk(next.0, next.1, &map) as u32 + risk;
-            risk_from_start[next.0][next.1] = risk.min(risk_from_start[next.0][next.1]);
-            s.insert((risk_from_start[next.0][next.1], next));
-
+            visited[x][y] = true;
+            let risk = risk_from_start[x][y].min(get_risk(x, y, &map) as u32 + risk);
+            risk_from_start[x][y] = risk;
+            t.push(Reverse((risk, (x, y))))
         }
-        cur = s.pop_first().unwrap().1;
-        visited[cur.0][cur.1] = true;
     }
     risk_from_start[width - 1][width - 1]
 }
