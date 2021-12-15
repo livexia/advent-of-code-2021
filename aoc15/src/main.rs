@@ -1,6 +1,8 @@
+#![feature(map_first_last)]
 use std::collections::HashSet;
 use std::error::Error;
 use std::io::{self, Read, Write};
+use std::collections::BTreeSet;
 
 macro_rules! err {
     ($($tt:tt)*) => { Err(Box::<dyn Error>::from(format!($($tt)*))) }
@@ -48,7 +50,7 @@ fn lowest_risk(map: &Vec<Vec<u8>>, width: usize) -> u32 {
 
     let mut cur = (0, 0);
 
-    let mut t = HashSet::new();
+    let mut s = BTreeSet::new();
 
     while !visited.iter().all(|v| v.iter().all(|&b| b)) {
         let risk = risk_from_start[cur.0][cur.1];
@@ -58,22 +60,11 @@ fn lowest_risk(map: &Vec<Vec<u8>>, width: usize) -> u32 {
             }
             let risk = get_risk(next.0, next.1, &map) as u32 + risk;
             risk_from_start[next.0][next.1] = risk.min(risk_from_start[next.0][next.1]);
-            t.insert(next);
-        }
+            s.insert((risk_from_start[next.0][next.1], next));
 
-        let mut min_risk = u32::MAX;
-        for next in t.clone() {
-            let i = next.0;
-            let j = next.1;
-            if !visited[i][j] {
-                if risk_from_start[i][j] < min_risk {
-                    min_risk = risk_from_start[i][j];
-                    cur = (i, j);
-                }
-            }
         }
+        cur = s.pop_first().unwrap().1;
         visited[cur.0][cur.1] = true;
-        t.remove(&cur);
     }
     risk_from_start[width - 1][width - 1]
 }
