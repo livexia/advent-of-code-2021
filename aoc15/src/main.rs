@@ -51,14 +51,19 @@ fn lowest_risk(map: &Vec<Vec<u8>>, width: usize) -> u32 {
     t.push(Reverse((0, (0, 0))));
     while let Some(Reverse((risk ,(i, j)))) = t.pop() {
         for (x, y) in adjacent_coords(i, j, width) {
+            // 实际上这个判断并不重要，因为当已经取得最短的路径的时候，新的路径肯定大于旧有路径
+            // 于是无论如何在存在最短路径的时候并不会向t中推数据。
             if visited[x][y] {
                 continue;
             }
-            visited[x][y] = true;
-            let risk = risk_from_start[x][y].min(get_risk(x, y, &map) as u32 + risk);
-            risk_from_start[x][y] = risk;
-            t.push(Reverse((risk, (x, y))))
+            let new_risk  = get_risk(x, y, &map) as u32 + risk;
+            let old_risk = risk_from_start[x][y];
+            if new_risk < old_risk {
+                risk_from_start[x][y] = new_risk;
+                t.push(Reverse((new_risk, (x, y))));
+            }
         }
+        visited[i][j] = true;
     }
     risk_from_start[width - 1][width - 1]
 }
@@ -71,10 +76,10 @@ fn adjacent_coords(i: usize, j: usize, width: usize) -> Vec<(usize, usize)> {
     if j + 1 < width {
         coords.push((i, j + 1))
     }
-    if j > 1 {
+    if j > 0 {
         coords.push((i, j - 1))
     }
-    if i > 1 {
+    if i > 0 {
         coords.push((i - 1, j))
     }
 
