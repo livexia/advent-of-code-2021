@@ -21,3 +21,7 @@
 使用 Dijkstra 算法。使用 BinaryHeap 和 Reverse 实现一个最小堆，加快遍历速度。
 
 参考：https://oi-wiki.org/graph/shortest-path/#dijkstra
+
+**Day 17:**:
+
+花了很多时间尝试推导出初始速度的范围，~~但是实际上暴力就可以解决了~~，需要进行裁切，具体裁切的过程和分析请看代码注释。（物理的知识完全没有记住）
