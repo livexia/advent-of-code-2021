@@ -109,8 +109,15 @@ pub fn reduce(s: Vec<i32>) -> Vec<i32> {
 }
 
 pub fn explode(s: Vec<i32>) -> Vec<i32> {
+    // 移除对最大高度的判断，实际上根据描述，当高度为四且存在大于9的节点时
+    // 会进行一次split，split一次最多使深度加一
+    // 而一次split之后，会进行explode操作，而explode操作确保深度在5之下
+    // 深度达到4的时候，假如存在大于9的节点，才会进行新的一次split操作
+    // 可见深度不可能达到6，除非连续进行了两次split，这也是为什么我这里原来有对最大高度的判断
+    // 是我在对reduce中的逻辑有理解错误
+
     let mut pair = vec![];
-    let max_height = height(&s);
+    // let max_height = height(&s);
     let mut height = 0;
     let mut stack = s.clone();
     for (i, c) in s.into_iter().enumerate() {
@@ -119,7 +126,8 @@ pub fn explode(s: Vec<i32>) -> Vec<i32> {
         } else if c == -2 {
             height -= 1;
         } else if c >= 0 {
-            if height >= max_height && pair.len() < 2 {
+            // if height >= max_height && pair.len() < 2 {
+            if height > 4 && pair.len() < 2 {
                 pair.push((i, c));
             }
             if pair.len() == 2 {
