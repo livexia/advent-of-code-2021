@@ -30,14 +30,13 @@ fn main() -> Result<()> {
 
     assert!(scanners.iter().all(|v| v.iter().all(|v1| v1.len() == 3)));
 
-
     let mut not_overlaps = HashSet::new();
 
     let mut known_scanner = HashSet::new();
     known_scanner.insert(0);
 
     let mut stack = vec![0];
-    let mut scanners_dis = vec![vec![0,0,0]];
+    let mut scanners_dis = vec![vec![0, 0, 0]];
 
     while let Some(i) = stack.pop() {
         for j in 1..length {
@@ -46,7 +45,14 @@ fn main() -> Result<()> {
                 if result.0.len() == 3 {
                     let scanner = result.0;
                     scanners[j] = result.1;
-                    writeln!(io::stdout(), "{} -> {}, found scanner {}, coord is {:?}(relative to scanner 0)", i, j, j, scanner)?; 
+                    writeln!(
+                        io::stdout(),
+                        "{} -> {}, found scanner {}, coord is {:?}(relative to scanner 0)",
+                        i,
+                        j,
+                        j,
+                        scanner
+                    )?;
                     scanners_dis.push(scanner);
                     known_scanner.insert(j);
                     stack.push(j);
@@ -54,30 +60,35 @@ fn main() -> Result<()> {
                     not_overlaps.insert((i, j));
                 }
             }
-            
         }
     }
     if known_scanner.len() != scanners.len() {
-        writeln!(io::stdout(), "Error: only {} scanners found", known_scanner.len())?;
+        writeln!(
+            io::stdout(),
+            "Error: only {} scanners found",
+            known_scanner.len()
+        )?;
     }
     let beacons: HashSet<Coord> = scanners.clone().into_iter().flatten().collect();
     writeln!(io::stdout(), "Part1: there is {} beacons", beacons.len())?;
-    
+
     let mut max_dis = 0;
     for s1 in scanners_dis.iter() {
         for s2 in scanners_dis.iter() {
-            max_dis = max_dis.max((s1[0] - s2[0]).abs() + (s1[1] - s2[1]).abs() + (s1[2] - s2[2]).abs());
+            max_dis =
+                max_dis.max((s1[0] - s2[0]).abs() + (s1[1] - s2[1]).abs() + (s1[2] - s2[2]).abs());
         }
     }
-    writeln!(io::stdout(), "Part2: the largest Manhattan distance between any two scanners is {}", max_dis)?;
-    
+    writeln!(
+        io::stdout(),
+        "Part2: the largest Manhattan distance between any two scanners is {}",
+        max_dis
+    )?;
+
     Ok(())
 }
 
-fn get_scanner_coord(
-    beacons0: &[Coord],
-    beacons1: &[Coord],
-) -> (Coord, Vec<Coord>) {
+fn get_scanner_coord(beacons0: &[Coord], beacons1: &[Coord]) -> (Coord, Vec<Coord>) {
     let all_rotates: Vec<Vec<Coord>> = beacons1.iter().map(|s| all_rotate(s.to_vec())).collect();
     let all_rotates_number = all_rotates[0].len();
     let mut scanner = vec![];
