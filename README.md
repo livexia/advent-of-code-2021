@@ -91,6 +91,8 @@ aoc18: 二叉树方法，失败中。
 
 aoc18_with_string: 字符串方法，成功通过part1和part2，并且含有相应函数的测试。
 
+参考：https://www.reddit.com/r/adventofcode/comments/rizw2c/2021_day_18_solutions
+
 ### Day19:
 
 这个题目其实并不难，但是有好几个关键的部分，第一个部分是，坐标系的转动是如何的，第二个部分是如何确定两个scanner中的beacon是重叠的。
@@ -104,6 +106,8 @@ aoc18_with_string: 字符串方法，成功通过part1和part2，并且含有相
 关于这一点，我看了很多的Reddit上的解答，大部分的人都有一个假定，假如beacon A、B都出现在 scanner X 和 Y 中，那么A、B的顺序应该在两个scanner 中是一致的，也就是说对于这个假设的情况下是不需要进行组合测试的。
 
 第二个部分我看到Reddit中有更加好的解决办法，只能留待后续继续实现了。参考 https://www.reddit.com/r/adventofcode/comments/rjpf7f/comment/hp8btm1/?utm_source=share&utm_medium=web2x&context=3
+
+参考：https://www.reddit.com/r/adventofcode/comments/rjpf7f/2021_day_19_solutions
 
 ### Day 20:
 
