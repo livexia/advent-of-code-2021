@@ -41,7 +41,7 @@ fn main() -> Result<()> {
 
     let steps = 50;
     for i in 1..=steps {
-        let offset = 2; // apply the image enhancement algorithm 1 times, only affects 2 around
+        let offset = 1; // apply the image enhancement algorithm 1 times, only affects 2 around
 
         let mut new_light_set: HashSet<(i32, i32)> = HashSet::new();
 
@@ -78,38 +78,6 @@ fn main() -> Result<()> {
         max_h += offset;
         min_w -= offset;
         max_w += offset;
-
-        if i % 2 == 0 {
-            for i in (max_h - 2 * offset..max_h).rev() {
-                if (min_w..max_w).any(|j| light_set.contains(&(i, j))) {
-                    continue;
-                } else {
-                    max_h -= 1;
-                }
-            }
-    
-            for i in min_h..=min_h + 2 * offset {
-                if (min_w..max_w).any(|j| light_set.contains(&(i, j))) {
-                    continue;
-                } else {
-                    min_h += 1;
-                }
-            }
-            for j in (max_w - 2 * offset..max_w).rev() {
-                if (min_h..max_h).any(|i| light_set.contains(&(i, j))) {
-                    continue;
-                } else {
-                    max_w -= 1;
-                }
-            }
-            for j in min_w..=min_w + 2 * offset {
-                if (min_h..max_h).any(|i| light_set.contains(&(i, j))) {
-                    continue;
-                } else {
-                    min_w += 1;
-                }
-            }
-        }
     }
 
     Ok(())
