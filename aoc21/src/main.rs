@@ -1,12 +1,16 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::io::{self, Read, Write};
+use std::process::exit;
+use std::time::{Duration, Instant};
 
 macro_rules! err {
     ($($tt:tt)*) => { Err(Box::<dyn Error>::from(format!($($tt)*))) }
 }
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
+
+type Cache = HashMap<((usize, usize), (usize, usize)), (usize, usize)>;
 
 fn main() -> Result<()> {
     let mut input = String::new();
@@ -18,8 +22,15 @@ fn main() -> Result<()> {
         .collect();
     writeln!(io::stdout(), "starting position is: {:?}", pos)?;
 
+    let start = Instant::now();
     part1(&pos)?;
+    writeln!(io::stdout(), "Part 1: took {:?} to cumpute", Instant::now() - start)?;
+    let start = Instant::now();
     part2(&pos)?;
+    writeln!(io::stdout(), "Part 2: took {:?} to cumpute", Instant::now() - start)?;
+    let start = Instant::now();
+    part2_with_cache(&pos)?;
+    writeln!(io::stdout(), "Part 2 with cache: took {:?} to cumpute", Instant::now() - start)?;
 
     Ok(())
 }
@@ -84,6 +95,38 @@ fn part2(pos: &[u32]) -> Result<()> {
 
     assert_eq!(counter.iter().max().unwrap(), &92399285032143);
     Ok(())
+}
+
+fn part2_with_cache(pos: &[u32]) -> Result<()> {
+    let mut cache = HashMap::new();
+    let (s1, s2) = quantum_game(&mut cache, (pos[0] as usize, pos[1] as usize), (0, 0));
+
+    writeln!(
+        io::stdout(),
+        "Part2: the player that wins in more universes totaly win {:?} in universes",
+        s1.max(s2)
+    )?;
+
+    assert_eq!(s1.max(s2), 92399285032143);
+    Ok(())
+}
+
+fn quantum_game(cache: &mut Cache, pos: (usize, usize), score: (usize, usize)) -> (usize, usize) {
+    if score.1 >= 21 {
+        return (0, 1);
+    }
+    if let Some(&score) = cache.get(&(pos, score)) {
+        return score;
+    }
+    let mut new_score = (0, 0);
+    for (offset, times) in [(3,1),(4,3),(5,6),(6,7),(7,6),(8,3),(9,1)] {
+        let pos = (pos.1, (pos.0 + offset) % 10);
+        let score = (score.1, score.0 + pos.1 + 1);
+        let (s1, s2) = quantum_game(cache, pos, score);
+        new_score = (new_score.0 + s2 * times, new_score.1 + s1 * times);
+    }
+    cache.insert((pos, score), new_score);
+    new_score
 }
 
 #[derive(Debug)]
