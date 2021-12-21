@@ -12,15 +12,22 @@ fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    let starting_pos: Vec<u32> = input
+    let pos: Vec<u32> = input
         .lines()
         .map(|s| s.split(": ").last().unwrap().parse::<u32>().unwrap())
         .collect();
-    writeln!(io::stdout(), "starting position is: {:?}", starting_pos)?;
+    writeln!(io::stdout(), "starting position is: {:?}", pos)?;
 
+    part1(&pos)?;
+    part2(&pos)?;
+
+    Ok(())
+}
+
+fn part1(pos: &[u32]) -> Result<()> {
     let mut deterministic_die = (1..=100).cycle();
-    let mut player1 = Player::new(0, starting_pos[0], 1000);
-    let mut player2 = Player::new(1, starting_pos[1], 1000);
+    let mut player1 = Player::new(pos[0], 1000);
+    let mut player2 = Player::new(pos[1], 1000);
     let mut players = vec![&mut player1, &mut player2];
 
     let mut times = 0;
@@ -39,10 +46,11 @@ fn main() -> Result<()> {
         of times the die was rolled during the game is {}",
         times * player1.score.min(player2.score)
     )?;
+    Ok(())
+}
 
-    let player1 = Player::new(0, starting_pos[0], 21);
-    let player2 = Player::new(1, starting_pos[1], 21);
-    let mut games = vec![Game::new(player1, player2)];
+fn part2(pos: &[u32]) -> Result<()> {
+    let mut games = vec![Game::new([pos[0], pos[1]], [0, 0], 0, 1)];
     let mut counter = vec![0u64, 0u64];
 
     let mut dirac_die: HashMap<u32, u64> = HashMap::new();
@@ -57,63 +65,73 @@ fn main() -> Result<()> {
     while let Some(game) = games.pop() {
         for game in game.roll_dirac_die(&dirac_die) {
             if let Some(key) = game.win() {
-                counter[key] += game.players[1].times;
+                counter[key] += game.times;
             } else {
                 games.push(game)
             }
         }
     }
+    
     writeln!(
         io::stdout(),
         "Part2: the player that wins in more universes totaly win {:?} in universes",
         counter.iter().max().unwrap()
     )?;
 
+    assert_eq!(counter.iter().max().unwrap(), &92399285032143);
     Ok(())
 }
 
 #[derive(Debug)]
 struct Game {
-    players: [Player; 2],
+    pos: [u32; 2],
+    score: [u32; 2],
+    cur: usize,
+    times: u64,
 }
 
 impl Game {
-    fn new(player1: Player, player2: Player) -> Self {
-        Self {
-            players: [player1, player2],
-        }
+
+    fn new(pos: [u32; 2], score: [u32; 2], cur: usize, times: u64) -> Self {
+        Self { pos, score, cur, times}
     }
 
     fn roll_dirac_die(&self, die: &HashMap<u32, u64>) -> Vec<Self> {
-        self.players[0].roll_dirac_die(self.players[1], die)
+        let pos = self.pos;
+        let score = self.score;
+        let cur = self.cur;
+        die.iter().
+            map(|(&i, &t)| {
+                let mut pos = pos.clone();
+                let mut score = score.clone();
+                pos[cur] = with_offset(pos[cur], i);
+                score[cur] = score[cur] + pos[cur];
+                Game::new(pos, score, 1 - cur, self.times * t)
+            }).collect()
     }
 
     fn win(&self) -> Option<usize> {
-        if self.players[1].win() {
-            Some(self.players[1].index)
+        if self.score[1 - self.cur] >= 21 {
+            Some(1 - self.cur)
         } else {
             None
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct Player {
-    index: usize,
     pos: u32,
     score: u32,
     max: u32,
-    times: u64,
 }
 
 impl Player {
-    fn new(index: usize, pos: u32, max: u32) -> Self {
+    fn new(pos: u32, max: u32) -> Self {
         Self {
-            index,
             pos,
             score: 0,
             max,
-            times: 1,
         }
     }
 
@@ -130,31 +148,15 @@ impl Player {
         self.score += self.pos;
     }
 
-    fn clone_with_offset(&mut self, offset: u32, times: u64) -> Self {
-        let mut pos = self.pos + offset;
-        if pos > 10 {
-            pos -= 10
-        }
-        Self {
-            pos,
-            times: self.times * times,
-            score: self.score + pos,
-            ..*self
-        }
-    }
-
-    fn appear_times(mut self, times: u64) -> Self {
-        self.times *= times;
-        self
-    }
-
-    fn roll_dirac_die(mut self, other: Player, die: &HashMap<u32, u64>) -> Vec<Game> {
-        die.iter()
-            .map(|(&i, &t)| Game::new(other.appear_times(t), self.clone_with_offset(i, t)))
-            .collect()
-    }
-
     fn win(&self) -> bool {
         self.score >= self.max
     }
+}
+
+fn with_offset(pos: u32, offset: u32) -> u32 {
+    let mut pos = pos + offset;
+    if pos > 10 {
+        pos -= 10
+    }
+    pos
 }
