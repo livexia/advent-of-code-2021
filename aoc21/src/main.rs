@@ -14,7 +14,7 @@ fn main() -> Result<()> {
 
     let pos: Vec<u32> = input
         .lines()
-        .map(|s| s.split(": ").last().unwrap().parse::<u32>().unwrap())
+        .map(|s| s.split(": ").last().unwrap().parse::<u32>().unwrap() - 1)
         .collect();
     writeln!(io::stdout(), "starting position is: {:?}", pos)?;
 
@@ -50,7 +50,7 @@ fn part1(pos: &[u32]) -> Result<()> {
 }
 
 fn part2(pos: &[u32]) -> Result<()> {
-    let mut games = vec![Game::new([pos[0], pos[1]], [0, 0], 0, 1)];
+    let mut games = vec![Game::new((pos[0], pos[1]), (0, 0), 0, 1)];
     let mut counter = vec![0u64, 0u64];
 
     let mut dirac_die: HashMap<u32, u64> = HashMap::new();
@@ -61,17 +61,21 @@ fn part2(pos: &[u32]) -> Result<()> {
             }
         }
     }
+    let dirac_die: Vec<(u32, u64)> = dirac_die.iter()
+        .map(|(&k, &v)| (k, v))
+        .collect();
 
     while let Some(game) = games.pop() {
-        for game in game.roll_dirac_die(&dirac_die) {
-            if let Some(key) = game.win() {
-                counter[key] += game.times;
+        for (i, t) in &dirac_die {
+            let new_game = game.next_roll(i, t * game.times);
+            if let Some(key) = new_game.win() {
+                counter[key] += new_game.times;
             } else {
-                games.push(game)
+                games.push(new_game)
             }
         }
     }
-    
+
     writeln!(
         io::stdout(),
         "Part2: the player that wins in more universes totaly win {:?} in universes",
@@ -84,34 +88,36 @@ fn part2(pos: &[u32]) -> Result<()> {
 
 #[derive(Debug)]
 struct Game {
-    pos: [u32; 2],
-    score: [u32; 2],
+    pos: (u32, u32),
+    score: (u32, u32),
     cur: usize,
     times: u64,
 }
 
 impl Game {
-
-    fn new(pos: [u32; 2], score: [u32; 2], cur: usize, times: u64) -> Self {
-        Self { pos, score, cur, times}
+    fn new(pos: (u32, u32), score: (u32, u32), cur: usize, times: u64) -> Self {
+        Self {
+            pos,
+            score,
+            cur,
+            times,
+        }
     }
 
-    fn roll_dirac_die(&self, die: &HashMap<u32, u64>) -> Vec<Self> {
-        let pos = self.pos;
-        let score = self.score;
-        let cur = self.cur;
-        die.iter().
-            map(|(&i, &t)| {
-                let mut pos = pos.clone();
-                let mut score = score.clone();
-                pos[cur] = with_offset(pos[cur], i);
-                score[cur] = score[cur] + pos[cur];
-                Game::new(pos, score, 1 - cur, self.times * t)
-            }).collect()
+
+    fn next_roll(&self, offset: &u32, times: u64) -> Self {
+        let pos = (self.pos.1, (self.pos.0 + offset) % 10);
+        let score = (self.score.1, self.score.0 + pos.1 + 1);
+        Self {
+            pos,
+            score,
+            cur: 1 - self.cur,
+            times,
+        }
     }
 
     fn win(&self) -> Option<usize> {
-        if self.score[1 - self.cur] >= 21 {
+        if self.score.1 >= 21 {
             Some(1 - self.cur)
         } else {
             None
@@ -119,7 +125,7 @@ impl Game {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Player {
     pos: u32,
     score: u32,
@@ -128,11 +134,7 @@ struct Player {
 
 impl Player {
     fn new(pos: u32, max: u32) -> Self {
-        Self {
-            pos,
-            score: 0,
-            max,
-        }
+        Self { pos, score: 0, max }
     }
 
     fn roll_deterministic_die<D>(&mut self, die: &mut D)
@@ -142,21 +144,11 @@ impl Player {
         self.pos += die.next().unwrap();
         self.pos += die.next().unwrap();
         self.pos += die.next().unwrap();
-        while self.pos > 10 {
-            self.pos -= 10
-        }
-        self.score += self.pos;
+        self.pos %= 10;
+        self.score += self.pos + 1;
     }
 
     fn win(&self) -> bool {
         self.score >= self.max
     }
-}
-
-fn with_offset(pos: u32, offset: u32) -> u32 {
-    let mut pos = pos + offset;
-    if pos > 10 {
-        pos -= 10
-    }
-    pos
 }
