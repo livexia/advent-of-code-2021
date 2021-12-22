@@ -52,8 +52,8 @@ fn part2(cuboids: &Vec<Cuboid>) -> Result<()> {
 }
 
 fn calc_volume(cuboids: &[Cuboid]) -> i64 {
-    let mut stack = vec![cuboids[0].clone()];
-    for next_cuboid in &cuboids[1..] {
+    let mut stack: Vec<Cuboid> = vec![];
+    for next_cuboid in &cuboids[..] {
         let mut new_stack = vec![];
         for cuboid in &stack {
             new_stack.push(cuboid.clone());
