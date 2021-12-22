@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::str::FromStr;
@@ -9,37 +8,35 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
-type Coord = (i64, i64, i64);
-
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
     // step (bool, (i64, i64), (i64, i64), (i64, i64))
-    let cubes: Vec<Cube> = input
+    let cuboids: Vec<Cuboid> = input
         .lines()
         .map(|s| s.parse())
-        .collect::<Result<Vec<Cube>>>()?;
+        .collect::<Result<Vec<Cuboid>>>()?;
 
-    writeln!(io::stdout(), "there is {} steps", cubes.len())?;
+    writeln!(io::stdout(), "there is {} steps", cuboids.len())?;
 
-    part1(&cubes)?;
-    part2(&cubes)?;
+    part1(&cuboids)?;
+    part2(&cuboids)?;
     Ok(())
 }
 
-fn part1(cubes: &Vec<Cube>) -> Result<()> {
-    let init_cube = Cube {
+fn part1(cuboids: &Vec<Cuboid>) -> Result<()> {
+    let init_cuboid = Cuboid {
         state: true,
         x: (-50, 50),
         y: (-50, 50),
         z: (-50, 50),
     };
-    let sub_cubes = cubes
+    let sub_cuboids = cuboids
         .iter()
-        .filter_map(|c| c.sub_cube(&init_cube))
-        .collect::<Vec<Cube>>();
-    let result = calc_volume(&sub_cubes);
+        .filter_map(|c| c.sub_cuboid(&init_cuboid))
+        .collect::<Vec<Cuboid>>();
+    let result = calc_volume(&sub_cuboids);
     writeln!(
         io::stdout(),
         "Part1: ther is {} cubes are on the initialization procedure region",
@@ -48,29 +45,29 @@ fn part1(cubes: &Vec<Cube>) -> Result<()> {
     Ok(())
 }
 
-fn part2(cubes: &Vec<Cube>) -> Result<()> {
-    let result = calc_volume(&cubes);
+fn part2(cuboids: &Vec<Cuboid>) -> Result<()> {
+    let result = calc_volume(&cuboids);
     writeln!(io::stdout(), "Part2: there is {} cubes", result)?;
     Ok(())
 }
 
-fn calc_volume(cubes: &[Cube]) -> i64 {
-    let mut stack = vec![cubes[0].clone()];
-    for next_cube in &cubes[1..] {
+fn calc_volume(cuboids: &[Cuboid]) -> i64 {
+    let mut stack = vec![cuboids[0].clone()];
+    for next_cuboid in &cuboids[1..] {
         let mut new_stack = vec![];
-        for cube in &stack {
-            new_stack.push(cube.clone());
-            if let Some(mut sub_cube) = cube.sub_cube(next_cube) {
-                if cube.state == next_cube.state {
-                    sub_cube.state = !next_cube.state;
+        for cuboid in &stack {
+            new_stack.push(cuboid.clone());
+            if let Some(mut sub_cuboid) = cuboid.sub_cuboid(next_cuboid) {
+                if cuboid.state == next_cuboid.state {
+                    sub_cuboid.state = !next_cuboid.state;
                 } else {
-                    sub_cube.state = next_cube.state;
+                    sub_cuboid.state = next_cuboid.state;
                 }
-                new_stack.push(sub_cube);
+                new_stack.push(sub_cuboid);
             }
         }
-        if next_cube.state {
-            new_stack.push(next_cube.clone());
+        if next_cuboid.state {
+            new_stack.push(next_cuboid.clone());
         }
         stack = new_stack;
     }
@@ -84,23 +81,23 @@ fn calc_volume(cubes: &[Cube]) -> i64 {
 }
 
 #[derive(Debug, Clone)]
-struct Cube {
+struct Cuboid {
     state: bool,
     x: (i64, i64),
     y: (i64, i64),
     z: (i64, i64),
 }
 
-impl Cube {
+impl Cuboid {
     fn volume(&self) -> i64 {
         (self.x.1 - self.x.0 + 1) * (self.y.1 - self.y.0 + 1) * (self.z.1 - self.z.0 + 1)
     }
 
-    fn sub_cube(&self, other: &Cube) -> Option<Cube> {
-        let x = Cube::sub_edge(self.x, other.x)?;
-        let y = Cube::sub_edge(self.y, other.y)?;
-        let z = Cube::sub_edge(self.z, other.z)?;
-        Some(Cube {
+    fn sub_cuboid(&self, other: &Cuboid) -> Option<Cuboid> {
+        let x = Cuboid::sub_edge(self.x, other.x)?;
+        let y = Cuboid::sub_edge(self.y, other.y)?;
+        let z = Cuboid::sub_edge(self.z, other.z)?;
+        Some(Cuboid {
             state: self.state,
             x,
             y,
@@ -121,7 +118,7 @@ impl Cube {
     }
 }
 
-impl FromStr for Cube {
+impl FromStr for Cuboid {
     type Err = Box<dyn Error>;
 
     fn from_str(s: &str) -> Result<Self> {
