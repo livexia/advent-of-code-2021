@@ -73,7 +73,6 @@ fn calc_volume(cubes: &[Cube]) -> i64 {
             new_stack.push(next_cube.clone());
         }
         stack = new_stack;
-        println!("{}", stack.len());
     }
     stack
         .iter()
