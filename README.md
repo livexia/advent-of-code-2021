@@ -130,3 +130,144 @@ aoc18_with_string: 字符串方法，成功通过part1和part2，并且含有相
 我自己参考实现了一下，我的理解是这个缓存从最底下开始进行，对于一次投掷的所有情况进行考虑，统计在这种情况下，各赢多少并累加。然后再把这个数字和这个投掷出现的次数进行相乘，也就是假如上一次投掷的结果是现在这样的，会有多少赢家。每次把当下的位置和当前的得分以及这个位置和得分下输赢情况存入缓存，那么下次再遇到直接取用即可。逐渐从投掷一次就赢的情况计算至输入时的情况，最后输入的得分就是两个玩家赢的次数。
 
 投掷的时候不需要对两个玩家进行循环，实际上每次只要对一个位置的玩家进行投掷移动处理，然后把两个玩家交换位置即可，减少需要记录的内容。
+
+
+### Day 22:
+
+应该是到目前为止我觉得最难的题目了，这道题目最直观的方法就是暴力，遍历所有可能的点，然后根据每一步取得最终的状态，但是很明显第一部分都足够的慢了，于是第二个部分肯定是不能用这种方法了。
+
+其实第二个方法也不难想到，那就是把每一行的输入都看作一个长方体，这个长方体存在四个属性，长方体里的小立方体的状态、x、y和z的范围。长方体的体积就是立方体的数量。
+
+考虑体积为 a 是长方体 A 和体积为 b 的长方体 B，假如A和B存在重叠，那么重叠的部分应该也是一个长方体，设重叠部分的长方体为体积为c的长方体 C。对于 A 和 B 存在以下四种情况：
+
+1. A 和 B 的状态都是 on，那么A和B中总共包含的立方体数量就是，a + b - c
+2. A 是 on，B 是 off，那么A和B中总共包含的立方体数量就是，a - c
+3. A 是 off，B 是 on，那么A和B中总共包含的立方体数量就是，b
+4. A 是 off，B 是 off，那么A和B中总共包含的立方体数量就是 0
+
+看起来很简单，但是实际上存在其他的问题。对于题目的输入，初始时不存在长方体，那么对于输入中的第一条为on的长方体应该就是最初的长方体。接下来这个初始长方体会进行下一步，取得下一步输入的立方体，无论这个输入的长方体的状态为何，当这一步结束的时候，输出的已经不再是长方体了，而是多个长方体的组合。而这个长方体的组合，又要接受新的输入，所以简单计算每一次输入之后体积的变化是不够的，因为后续还需要对之前的长方体进行变换。
+
+以下是这个部分的 Rust 代码：
+
+```Rust
+let mut stack: Vec<Cuboid> = vec![]; // 初始化空栈，用来存储每次变化之后所有的长方体
+    for next_cuboid in &cuboids[..] {
+        // 遍历每一次变化的长方体
+        let mut new_stack = vec![]; // 建立新栈，防止在后续遍历对栈的直接修改，导致逻辑错误
+        for cuboid in &stack {
+            // 循环遍历栈中的长方体
+            new_stack.push(cuboid.clone()); // 直接在新栈中存入当前的长方体
+            if let Some(mut sub_cuboid) = cuboid.sub_cuboid(next_cuboid) {
+                // 计算当前长方体和输入长方体的重叠区域
+                // 防止累加两次重叠和减去两次重叠
+                if cuboid.state == next_cuboid.state {
+                    // 假如当前长方体和输入长方体的状态一致，重叠长方体的状态应该取反
+                    sub_cuboid.state = !next_cuboid.state;
+                } else {
+                    // 状态不一致时，重叠区域的状态应该和输入长方体的状态一致
+                    sub_cuboid.state = next_cuboid.state;
+                }
+                new_stack.push(sub_cuboid); // 把重叠区域的长方体放入栈中
+            }
+        }
+        if next_cuboid.state {
+            // 假如输入的长方体状态为打开，那么直接把输入推入栈中即可
+            new_stack.push(next_cuboid.clone());
+        }
+        stack = new_stack; // 更新栈
+    }
+```
+
+**具体说明：**
+
+最初的栈中没有任何的长方体，当遇到输入的长方体为 on 的时候，将输入长方体推入栈。当栈中存在长方体时，需要进一步考虑。
+
+考虑当前栈中的长方体 A 和输入长方体 B，假如A和B存在重叠，那么重叠的部分应该也是一个长方体，设重叠部分的长方体为长方体 C。对于 A 和 B 存在以下四种情况：
+
+1. A 和 B 的状态都是 on，**长方体 A 和 B 都会被推入栈中**，但是这个时候，A 和 B 的重叠区域就被重复计算了两次，所以向栈中**推入状态为 off 的 长方体 C**。
+2. A 是 on，B 是 off，**长方体 A 会被推入栈中**，但是这个时候，A 和 B 的重叠区域就被重复计算了，所以向栈中**推入状态为 off 的 长方体 C**，表示重叠区域 C 是需要被减去的。
+3. A 是 off，B 是 on，**长方体 B 会被推入栈中**，因为是新的输入覆盖老的输入，所以向栈中**推入状态为 on 的 长方体 C**，表示重叠区域 C 是需要被加上的。
+4. A 是 off，B 是 off，**长方体 A 和 B 会不被推入栈中**，栈中的所状态为 off 的长方体都是由重叠产生的，那么 A 和 B 的重叠区 C 已经在重叠区域中表示了。所以向栈中**推入状态为 on 的 长方体 C**，表示新的重叠区域 C 是需要被加上的，防止重复减去重叠区域。
+
+最后只需要对栈中所有的长方体进行体积计算，加上状态为 on 的长方体体积，减去状态为 off 的长方体体积，最后的结果就是所有步骤之后立方体的数量。
+
+**计算重叠区域的长方体**：这个部分是我觉得最难的地方，因为我想的太复杂了，没有想着从一条边的情况开始考虑，实际上长方体就是长方形的累积，长方形就是线段的累积，线段的累积是好分分析的，那么只需要从线段开始，就可以轻易得出重叠部分。
+
+**考虑一条线段的重叠情况**：假如一个线段的起点落在另一个线段中，那么这两个线段就存在重叠区域。具体计算和说明见以下 Rust 代码：
+
+```Rust
+fn sub_edge((a, b): (i64, i64), (low, high): (i64, i64)) -> Option<(i64, i64)> {
+    if a > high {
+        // 假如一条线段的最小端大于另一条线段的最大端，则不存在重叠区域
+        return None;
+    }
+    if b < low {
+        // 假如一条线段的最大端小于另一条线段的最小端，则不存在重叠区域
+        return None;
+    }
+    let low = low.max(a); // 重叠线段的最小端是，两条线段最小端中较大的那个
+    let high = high.min(b); // 重叠线段的最大端是，两条线段最大端中较小的那个
+    Some((low, high))
+}
+```
+
+**考虑长方形的重叠情况**：假如两个长方体的一边都不存在重叠区域，那么两个长方体肯定不会重叠。而重叠区域的计算，应该就是两条边分别计算重叠边，这两条重叠边的区域就是重叠区域。
+
+**考虑长方体的重叠情况**：根据长方形的情况类推即可，代码见如下：
+
+```Rust
+fn sub_cuboid(&self, other: &Cuboid) -> Option<Cuboid> {
+    let x = Cuboid::sub_edge(self.x, other.x)?;
+    let y = Cuboid::sub_edge(self.y, other.y)?;
+    let z = Cuboid::sub_edge(self.z, other.z)?;
+    Some(Cuboid {
+        state: self.state,
+        x,
+        y,
+        z,
+    })
+}
+```
+
+**优化**：
+在计算的过程中，我利用栈来进行统计，实际上可以用HashMap来加快统计，代码见如下：
+
+```Rust
+fn calc_volume_with_hashmap(cuboids: &[Cuboid]) -> i64 {
+    let mut counters: HashMap<Cuboid, i64> = HashMap::new(); // 初始化空表，用来存储每次变化之后所有的长方体和长方体出现的次数
+    for next_cuboid in &cuboids[..] {
+        let mut new_counters = counters.clone(); // 复制为新的HashMap，防止遍历HashMap的过程中对其进行修改，导致逻辑错误
+        for (cuboid, count) in counters {
+            // 遍历上一次的长方体
+            if let Some(sub_cuboid) = cuboid.sub_cuboid(next_cuboid) {
+                // 计算重叠区域
+                // 重叠区域的次数为减去当前长方体的次数
+                // 类似于利用栈实现的时候，新的长方体的状态为当前长方体的取反，具体见栈的实现的说明
+                *new_counters.entry(sub_cuboid).or_insert(0) -= count;
+            }
+        }
+        if next_cuboid.state {
+            // 假如输入长方体状态为 on， 直接将表中的长方体的值加一，即出现次数加1
+            *new_counters.entry(next_cuboid.clone()).or_insert(0) += 1;
+        }
+        counters = new_counters;
+    }
+    // 计算总体积的时候，要将长方体的体积乘上长方体出现的次数
+    counters.iter().map(|(c, w)| c.volume() * w).sum()
+}
+```
+
+**结果**
+
+```shell
+there is 420 steps
+Part1: ther is 648681 cubes are on the initialization procedure region
+Part 1 took 8.63525ms to computer
+Part2: there is 1302784472088899 cubes
+Part 2 with stack took 790.735791ms to computer
+Part2: there is 1302784472088899 cubes
+Part 2 with HashMap took 264.527791ms to computer
+cargo run < input/input.txt  1.28s user 0.37s system 75% cpu 2.177 total
+```
+
+可以看见 HashMap 的时间快了很多，理论上还能进行优化，但是这些优化都是极小的，所以就不再引入了。
