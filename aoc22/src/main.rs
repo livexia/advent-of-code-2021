@@ -52,24 +52,31 @@ fn part2(cuboids: &Vec<Cuboid>) -> Result<()> {
 }
 
 fn calc_volume(cuboids: &[Cuboid]) -> i64 {
-    let mut stack: Vec<Cuboid> = vec![];
+    let mut stack: Vec<Cuboid> = vec![]; // 初始化空栈，用来存储每次变化之后所有的长方体
     for next_cuboid in &cuboids[..] {
-        let mut new_stack = vec![];
+        // 遍历每一次变化的长方体
+        let mut new_stack = vec![]; // 建立新栈，防止在后续遍历对栈的直接修改，导致逻辑错误
         for cuboid in &stack {
-            new_stack.push(cuboid.clone());
+            // 循环遍历栈中的长方体
+            new_stack.push(cuboid.clone()); // 直接在新栈中存入当前的长方体
             if let Some(mut sub_cuboid) = cuboid.sub_cuboid(next_cuboid) {
+                // 计算当前长方体和输入长方体的重叠区域
+                // 防止累加两次重叠和减去两次重叠
                 if cuboid.state == next_cuboid.state {
+                    // 假如当前长方体和输入长方体的状态一致，重叠长方体的状态应该取反
                     sub_cuboid.state = !next_cuboid.state;
                 } else {
+                    // 状态不一致时，重叠区域的状态应该和输入长方体的状态一致
                     sub_cuboid.state = next_cuboid.state;
                 }
-                new_stack.push(sub_cuboid);
+                new_stack.push(sub_cuboid); // 把重叠区域的长方体放入栈中
             }
         }
         if next_cuboid.state {
+            // 假如输入的长方体状态为打开，那么直接把输入推入栈中即可
             new_stack.push(next_cuboid.clone());
         }
-        stack = new_stack;
+        stack = new_stack; // 更新栈
     }
     stack
         .iter()
@@ -107,13 +114,15 @@ impl Cuboid {
 
     fn sub_edge((a, b): (i64, i64), (low, high): (i64, i64)) -> Option<(i64, i64)> {
         if a > high {
+            // 假如一条线段的最小端大于另一条线段的最大端，则不存在重叠区域
             return None;
         }
         if b < low {
+            // 假如一条线段的最大端小于另一条线段的最小端，则不存在重叠区域
             return None;
         }
-        let low = low.max(a);
-        let high = high.min(b);
+        let low = low.max(a); // 重叠线段的最小端是，两条线段最小端中较大的那个
+        let high = high.min(b); // 重叠线段的最大端是，两条线段最大端中较小的那个
         Some((low, high))
     }
 }
