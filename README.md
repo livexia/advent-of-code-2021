@@ -271,3 +271,7 @@ cargo run < input/input.txt  1.28s user 0.37s system 75% cpu 2.177 total
 ```
 
 可以看见 HashMap 的时间快了很多，理论上还能进行优化，但是这些优化都是极小的，所以就不再引入了。
+
+参考：
+> https://www.reddit.com/r/adventofcode/comments/rlxhmg/2021_day_22_solutions/
+> https://github.com/satylogin/aoc/blob/main/archive-2021/day_22.rs
