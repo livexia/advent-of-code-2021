@@ -7,6 +7,17 @@
 - Day 18
 - Day 19
 - Day 23
+- Day 24
+
+
+## 需要提升的能力
+
+通过参加AdventOfCode，我发现自己有很多Rust、算法相关的短板。
+
+1. 利用 Rust 实现树结构和相关的操作
+2. Rust 的 Itertools、hashbrown
+3. 更加熟练的递归
+4. 更加耐心和坚持的分析
 
 ## 记录
 
@@ -303,3 +314,151 @@ HashMap是用来减少计算次数的，也就是剪枝叶。最小堆也是为�
 > https://github.com/AxlLind/AdventOfCode2021/blob/main/src/bin/23.rs
 > https://oi-wiki.org/graph/shortest-path/#dijkstra
 
+
+### Day 24:
+
+背景都很容易，解释执行类似于汇编语言的指令。但是求解的目标是计算出能通过输入程序的最大值，输入是14位长的由1～9构成的数字，暴力遍历。暴力的速度实在不够，
+
+之前写的aoc也有类似的题目，我记得那个题目是分析了输入，优化了输入中的循环。所以我又花了及其多的时间，分析输入。输入是由14组类似的代码块组成的，每一块只有三个部分不同。
+
+```asm
+inp w
+mul x 0
+add x z
+mod x 26    
+div z 1     // 1, 1, 1, 1, 26, 1, 26, 26, 1, 26, 1, 26, 26, 26,
+add x 10    // 10, 15, 14, 15, -8, 10, -16, -4, 11, -3, 12, -7, -15, -7
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 2     // 2, 16, 9, 0, 1, 12, 6, 6, 3, 5, 9, 3, 2, 3
+mul y x
+add z y
+```
+
+化简成Rust代码大致如下：
+
+```Rust
+x = 0;
+x = z % 26;
+
+z /= 1; // 1, 1, 1, 1, 26, 1, 26, 26, 1, 26, 1, 26, 26, 26,
+x += 10; // 10, 15, 14, 15, -8, 10, -16, -4, 11, -3, 12, -7, -15, -7
+
+x = if x == w { 0 } else { 1 };
+
+z = z * (25 * x + 1);
+// x 为 0 或 1
+// x == 0 => z = z
+// x == 1 => z = 26 * z
+z = z + (w + 2) * x; // k: 2, 16, 9, 0, 1, 12, 6, 6, 3, 5, 9, 3, 2, 3
+// x == 0 => z = z
+// x == 1 => z = z + w + k
+```
+
+我瞪着这个代码看了大概一个小时，没有想到任何能让z保持0的情况，理论上只有当 x == w 的时候，z才不会增长，那么假如z初始就为0，而且每次x都和w相同，那么就没有问题。假如z=0，那么x += 10那一条语句就极其重要了，因为这个时候，x就完全等于所赋的值，但是可以看到这个值不可能是输入w，所以这个方法显然是有问题的。
+
+无果之后我决定求助Reddit，这个时候我已经没有耐心再看大家的分析了，于是我决定找一份代码来研究研究，参见：https://github.com/AxlLind/AdventOfCode2021/blob/main/src/bin/24.rs。
+
+代码很直接，暴力加上缓存。因为第一部分是求解最大的输入，那么从9开始进行判断，遇到的第一个通过的数字应该是最大的数字。下面是我的实现，参见代码注释：
+
+```Rust
+fn find_model_number(
+    cache: &mut HashMap<(i64, usize), Option<i64>>,
+    alu: &mut ALU,
+    blocks: &[Vec<Instruction>],
+    index: usize,
+    digits: [i64; 9],
+) -> Option<i64> {
+    // cache：HashMap实现的缓存，key是z的值和当前运行到的代码块，value是当前的输入数字的倒叙
+    // alu：计算单元，含有四个变量，理论上可以用z代替，因为每次计算之后，实际上只有z的值是重要的，wxy的值都会在下一次运行被清零
+    // blocks：所有的代码块
+    // index：当前运行的代码块
+    // digits：所有可能的数字排列
+
+    // 首先保存当前的z值
+    let z = alu.variables[3];
+    if let Some(&answer) = cache.get(&(z, index)) {
+        return answer;
+    }
+
+    for d in digits {
+        // 修改alu的z值为上一个代码块运行后的z值
+        alu.variables[3] = z;
+
+        // 执行新的代码块
+        alu.execute(&[d], &blocks[index]);
+
+        // 记录新的z值为new_z
+        let new_z = alu.variables[3];
+        if index + 1 == blocks.len() {
+            // index为13的时候，说明当前的输入已经达到了14位数字
+            if new_z == 0 {
+                // 假如这个时候的z值为0，实际上这个时候应该就是所要求的值了，不论是最大还是最小的
+                // 但是注意这里返回的是第十四位的数字
+                // 可以看出来，需要走到这里才能找到完整的输入数字
+                // 将结果存入缓存/记忆
+                cache.insert((new_z, index), Some(d));
+                // 返回当前数字，用来拼接完整的数字
+                return Some(d);
+            }
+            continue;
+        }
+        if let Some(best) = find_model_number(cache, alu, blocks, index + 1, digits) {
+            // 找到下一个满足要求的数字
+            // 实际上这里得到的应该是倒叙算出的数字
+            // 将结果存入缓存/记忆
+            cache.insert((new_z, index), Some(best * 10 + d));
+            // best是计算是之后的输入数字，将best乘10再加上当前的数字
+            // 就是截止目前为止的所有输入
+            return Some(best * 10 + d);
+        }
+    }
+
+    // 假如没有找到，直接返回None
+    cache.insert((z, index), None);
+    None
+}
+```
+
+**写完之后其实发现并不是很复杂，但是为什么我没有想到呢？第一方面我对递归还是认知太少，写的太少了。我在运动的时候还在想这个题目，实际上我已经知道大致是这样一个暴力加记忆的优化，但是我没有想到很到的怎么组合14个数字，没想到用递归实现。**
+
+等我写完代码之后，我突然意识到实际上z变为0除了每次z都是0之外，还有在指令 div z 1（div z 26）的时候。但是我还是不想一个一个分析，不过倒是可以把上面的分析代码化，直接通过函数算出z值，就不再通过ALU了。
+
+```Rust
+fn calc(w: i64, z: i64, index: usize) -> i64 {
+    // div z [k]
+    let k = [1, 1, 1, 1, 26, 1, 26, 26, 1, 26, 1, 26, 26, 26];
+    // add x [p]
+    let p = [10, 15, 14, 15, -8, 10, -16, -4, 11, -3, 12, -7, -15, -7];
+    // add y [q]
+    let q = [2, 16, 9, 0, 1, 12, 6, 6, 3, 5, 9, 3, 2, 3];
+    let mut x = z % 26 + p[index];
+    let mut z = z / k[index];
+    x = if x == w { 0 } else { 1 };
+    z = z * (25 * x + 1);
+    z = z + (w + q[index]) * x;
+    z
+}
+```
+
+**结果**
+
+Part1: "98491959997994", took: 846.150333ms
+Part1 with trimed func: "98491959997994", took: 103.46275ms
+Part2: "61191516111321", took: 24.101829375s
+Part2 with trimed func: "61191516111321", took: 3.891638208s
+
+自己裁减的函数的运行速度，快了很多。假如我能想到用递归的方式遍历，也许我也能自己实现了。
+
+参考：
+> https://www.reddit.com/r/adventofcode/comments/rnejv5/2021_day_24_solutions/
+> https://github.com/AxlLind/AdventOfCode2021/blob/main/src/bin/24.rs
+> https://github.com/dphilipson/advent-of-code-2021/blob/master/src/days/day24.rs
+> https://oi-wiki.org/dp/memo/
