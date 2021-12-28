@@ -1,3 +1,5 @@
+mod test;
+
 use std::error::Error;
 use std::io::{self, Read, Write};
 
@@ -12,47 +14,47 @@ fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    // let number = Number::from_str("[3,[1,2]]")?;
-    // println!("{:#?}", number);
-
-    // let number = Number::from_str("[[1,2],3]")?;
-    // println!("{:#?}", number);
-
-    // let number = Number::from_str("[1,2]")?;
-    // println!("{:#?}", number);
-
-    // let number = Number::from_str("[[[[1,2],[3,4]],[[5,6],[7,8]]],9]")?;
-    // println!("{:#?}", number);
-
-    // let numbers: Vec<Option<Box<Number>>> = input
-    //     .lines()
-    //     .map(|s| Number::from_str(s))
-    //     .collect::<Result<_>>()?;
-
-    // println!("there is {} snailfish numbers", numbers.len());
-
-    // let mut number = Number::with_value(11);
-    // println!("{:#?}", number);
-    // number.split();
-    // println!("{:#?}", number);
-
-    // let number = Number::from_str("[3,[1,2]]")?;
-    // let number = Number::from_str("[[[[[9,8],1],2],3],4]");
-    // println!("{:#?}", number);
-
-    // let number1 = Number::from_str("[[[[4,3],4],4],[7,[[8,4],9]]] ")?;
-    // let number2 = Number::from_str("[1,1]")?;
-    // println!("{:#?}", Number::addition(number1, number2));
-
-    let number = Number::from_str("[[[[[9,8],1],2],3],4]")?;
-    number.unwrap().reduce();
-
-    // part1()?;
-    // part2()?;
+    part1(&&input)?;
+    part2(&&input)?;
     Ok(())
 }
 
-#[derive(Debug)]
+fn part1(input: &str) -> Result<()> {
+    let mut input: Vec<Option<Box<Number>>> = input
+        .lines()
+        .map(|s| Number::from_str(s))
+        .collect::<Result<Vec<Option<Box<Number>>>>>()?;
+
+    let first = input.remove(0);
+    let result = input.into_iter().fold(first, |acc, s| {
+        let mut acc = Number::addition(acc, s);
+        acc.as_mut().unwrap().reduce();
+        acc
+    });
+    writeln!(io::stdout(), "Part1: the magnitude of the final sum is {}", result.as_ref().unwrap().calc_magnitude())?;
+    Ok(())
+}
+
+fn part2(input: &str) -> Result<()> {
+    let input: Vec<Option<Box<Number>>> = input
+        .lines()
+        .map(|s| Number::from_str(s))
+        .collect::<Result<Vec<Option<Box<Number>>>>>()?;
+
+    let mut max_magnitude = 0;
+    for i in 0..input.len() {
+        for j in 1+1..input.len() {
+            let mut result = Number::addition(input[i].clone(), input[j].clone());
+            result.as_mut().unwrap().reduce();
+            max_magnitude = max_magnitude.max(result.as_ref().unwrap().calc_magnitude())
+        }
+    }
+    
+    writeln!(io::stdout(), "Part2: the largest magnitude of any sum of two different snailfish numbers is {}", max_magnitude)?;
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Number {
     value: Option<Int>,
     left: Option<Box<Number>>,
@@ -100,7 +102,11 @@ impl Number {
 
     fn from_str(s: &str) -> Result<Option<Box<Self>>> {
         // [1, 2]
-        let mut stack: Vec<u8> = s.bytes().filter(|c| !c.is_ascii_whitespace()).rev().collect();
+        let mut stack: Vec<u8> = s
+            .bytes()
+            .filter(|c| !c.is_ascii_whitespace())
+            .rev()
+            .collect();
         stack.pop();
         Ok(Number::from_stack(&mut stack))
     }
@@ -122,53 +128,105 @@ impl Number {
         Some(Box::new(number))
     }
 
-    fn addition(left: Option<Box<Number>>, right: Option<Box<Number>>) -> Number {
-        Number::new(None, left, right)
+    fn addition(left: Option<Box<Number>>, right: Option<Box<Number>>) -> Option<Box<Number>> {
+        Some(Box::new(Number::new(None, left, right)))
     }
 
-    fn reduce(mut self) -> (Option<Box<Self>>, Option<(Int, Int)>) {
-        let mut values = None;
-        let number: Option<Box<Self>>;
-        if self.height < 4 {
-            if let Some(left) = self.left.take() {
-                let result = left.reduce();
-                self.left = result.0;
-                values = result.1;
-                if let Some(values) = values {
-                    if let Some(mut right) = self.right.take() {
-                        if right.value.is_some() {
-                            *right.value.as_mut().unwrap() += values.1;
-                        }
+    fn reduce(&mut self) {
+        let mut reduced = false;
+        while !reduced {
+            let result = self.explode(None, None, false);
+            if result.2 {
+                reduced = false;
+                continue;
+            }
+            reduced = !self.split();
+        }
+    }
+
+    fn calc_magnitude(&self) -> i32 {
+        if let Some(value) = self.value {
+            return value as i32;
+        }
+        let mut result = 0;
+        result += 3 * self.left.as_ref().unwrap().calc_magnitude();
+        result += 2 * self.right.as_ref().unwrap().calc_magnitude();
+
+        result
+    }
+
+    fn find_right<'a>(
+        child: &'a mut Option<Box<Number>>,
+        leftmost: Option<&'a mut Option<Box<Number>>>,
+        right_value: Option<u8>,
+        exploded: bool,
+    ) -> (Option<&'a mut Option<Box<Number>>>, Option<u8>, bool) {
+        let value = right_value.clone();
+        if child.as_ref().unwrap().value.is_some() {
+            if let Some(value) = value {
+                let height = child.as_ref().unwrap().height;
+                *child = Some(Box::new(Number::with_value(
+                    child.as_ref().unwrap().value.unwrap() + value,
+                )));
+                child.as_mut().unwrap().height = height;
+                (leftmost, None, exploded)
+            } else {
+                (Some(child), right_value, exploded)
+            }
+        } else {
+            child
+                .as_mut()
+                .unwrap()
+                .explode(leftmost, right_value, exploded)
+        }
+    }
+
+    fn explode<'a>(
+        &'a mut self,
+        leftmost: Option<&'a mut Option<Box<Number>>>,
+        right_value: Option<u8>,
+        exploded: bool,
+    ) -> (Option<&'a mut Option<Box<Number>>>, Option<u8>, bool) {
+        if self.height > 3 && !exploded {
+            let right_value = self.right.take().unwrap().value;
+            self.value = Some(0);
+            if let Some(left_value) = self.left.take().unwrap().value {
+                if let Some(Some(leftmost)) = leftmost {
+                    if let Some(value) = leftmost.value {
+                        leftmost.value = Some(value + left_value);
                     }
                 }
             }
-            number = Some(Box::new(self))
+            (None, right_value, true)
         } else {
-            number = None;
-            values = Some(self.explode());
+            let (leftmost, right_value, exploded) =
+                Number::find_right(&mut self.left, leftmost, right_value, exploded);
+            let (leftmost, right_value, exploded) =
+                Number::find_right(&mut self.right, leftmost, right_value, exploded);
+            (leftmost, right_value, exploded)
         }
-        // if let Some(value) = self.value {
-        //     if value > 9 {
-        //         self.split()
-        //     }
-        // }
-        return (number, values);
     }
 
-    fn explode(&self) -> (Int, Int) {
-        let left_value = self.left.as_ref().unwrap().value.unwrap();
-        let right_value = self.right.as_ref().unwrap().value.unwrap();
-        return (left_value, right_value)
-    }
-
-    fn split(&mut self) {
+    fn split(&mut self) -> bool {
         if let Some(value) = self.value {
-            let left_value = value / 2;
-            self.add_child(Some(Box::new(Number::with_value(left_value))));
-            self.add_child(Some(Box::new(Number::with_value(value - left_value))));
-            self.value = None;
+            if value > 9 {
+                let left_value = value / 2;
+                self.add_child(Some(Box::new(Number::with_value(left_value))));
+                self.add_child(Some(Box::new(Number::with_value(value - left_value))));
+                self.value = None;
+                self.update_height();
+                return true;
+            }
+            false
+        } else {
+            if self.left.as_mut().unwrap().split() {
+                return true;
+            }
+            if self.right.as_mut().unwrap().split() {
+                return true;
+            }
+            false
         }
-        self.update_height();
     }
 
     fn update_height(&mut self) {
@@ -180,5 +238,20 @@ impl Number {
             right.height = self.height + 1;
             right.update_height();
         }
+    }
+
+    fn output(&self) -> String {
+        let mut result = String::new();
+        if let Some(value) = self.value {
+            result.push_str(&value.to_string());
+        } else {
+            result.push('[');
+            result.push_str(&self.left.as_deref().unwrap().output());
+            result.push(',');
+            result.push_str(&self.right.as_deref().unwrap().output());
+            result.push(']');
+        }
+
+        result
     }
 }
