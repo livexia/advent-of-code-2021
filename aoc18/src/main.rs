@@ -31,7 +31,11 @@ fn part1(input: &str) -> Result<()> {
         acc.as_mut().unwrap().reduce();
         acc
     });
-    writeln!(io::stdout(), "Part1: the magnitude of the final sum is {}", result.as_ref().unwrap().calc_magnitude())?;
+    writeln!(
+        io::stdout(),
+        "Part1: the magnitude of the final sum is {}",
+        result.as_ref().unwrap().calc_magnitude()
+    )?;
     Ok(())
 }
 
@@ -43,14 +47,18 @@ fn part2(input: &str) -> Result<()> {
 
     let mut max_magnitude = 0;
     for i in 0..input.len() {
-        for j in 1+1..input.len() {
+        for j in 1 + 1..input.len() {
             let mut result = Number::addition(input[i].clone(), input[j].clone());
             result.as_mut().unwrap().reduce();
             max_magnitude = max_magnitude.max(result.as_ref().unwrap().calc_magnitude())
         }
     }
-    
-    writeln!(io::stdout(), "Part2: the largest magnitude of any sum of two different snailfish numbers is {}", max_magnitude)?;
+
+    writeln!(
+        io::stdout(),
+        "Part2: the largest magnitude of any sum of two different snailfish numbers is {}",
+        max_magnitude
+    )?;
     Ok(())
 }
 
@@ -101,7 +109,6 @@ impl Number {
     }
 
     fn from_str(s: &str) -> Result<Option<Box<Self>>> {
-        // [1, 2]
         let mut stack: Vec<u8> = s
             .bytes()
             .filter(|c| !c.is_ascii_whitespace())
@@ -164,11 +171,8 @@ impl Number {
         let value = right_value.clone();
         if child.as_ref().unwrap().value.is_some() {
             if let Some(value) = value {
-                let height = child.as_ref().unwrap().height;
-                *child = Some(Box::new(Number::with_value(
-                    child.as_ref().unwrap().value.unwrap() + value,
-                )));
-                child.as_mut().unwrap().height = height;
+                child.as_mut().unwrap().value =
+                    Some(child.as_ref().unwrap().value.unwrap() + value);
                 (leftmost, None, exploded)
             } else {
                 (Some(child), right_value, exploded)
